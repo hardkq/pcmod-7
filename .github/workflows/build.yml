@@ -1,0 +1,49 @@
+name: Build mod
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            8
+            17
+            21
+
+      - name: Prepare project
+        run: |
+          mkdir code
+          unzip -q -o ./*.zip -d code
+          MAIN=$(find code -type d -path '*/src/main' | head -1)
+          SRC=$(dirname "$MAIN")
+          git clone --depth 1 https://github.com/GTNewHorizons/ExampleMod1.7.10 tmpl
+          rm -rf tmpl/src
+          cp -r "$SRC" tmpl/src
+          cd tmpl
+          sed -i 's/^modName *=.*/modName = PC Mod/; s/^modId *=.*/modId = pcmod/; s/^modGroup *=.*/modGroup = ru.pcmod/' gradle.properties
+
+      - name: Build
+        working-directory: tmpl
+        env:
+          RELEASE_VERSION: 0.1.0
+        run: |
+          chmod +x gradlew
+          ./gradlew assemble --no-daemon
+
+      - name: Collect jar
+        run: |
+          mkdir out
+          find tmpl/build/libs -name '*.jar' ! -name '*-dev.jar' ! -name '*-sources.jar' -exec cp {} out/ \;
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pcmod-0.8.0
+          path: out/*.jar
